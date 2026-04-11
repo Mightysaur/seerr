@@ -116,10 +116,14 @@ const ManageSlideOver = ({
       : null
   );
   const { data: radarrData } = useSWR<RadarrSettings[]>(
-    hasPermission(Permission.ADMIN) ? '/api/v1/settings/radarr' : null
+    hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], { type: 'or' })
+      ? '/api/v1/settings/radarr'
+      : null
   );
   const { data: sonarrData } = useSWR<SonarrSettings[]>(
-    hasPermission(Permission.ADMIN) ? '/api/v1/settings/sonarr' : null
+    hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], { type: 'or' })
+      ? '/api/v1/settings/sonarr'
+      : null
   );
 
   const deleteMedia = async () => {
@@ -328,7 +332,9 @@ const ManageSlideOver = ({
             </div>
           </div>
         )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           (data.mediaInfo?.serviceUrl ||
             data.mediaInfo?.tautulliUrl ||
             watchData?.data) && (
@@ -452,7 +458,9 @@ const ManageSlideOver = ({
                   </a>
                 )}
 
-                {hasPermission(Permission.ADMIN) &&
+                {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+                  type: 'or',
+                }) &&
                   data?.mediaInfo?.serviceUrl &&
                   isDefaultService() && (
                     <div>
@@ -488,7 +496,9 @@ const ManageSlideOver = ({
               </div>
             </div>
           )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           (data.mediaInfo?.serviceUrl4k ||
             data.mediaInfo?.tautulliUrl4k ||
             watchData?.data4k) && (
@@ -649,7 +659,9 @@ const ManageSlideOver = ({
               </div>
             </div>
           )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           data?.mediaInfo &&
           data.mediaInfo.status !== MediaStatus.BLOCKLISTED && (
             <div>
