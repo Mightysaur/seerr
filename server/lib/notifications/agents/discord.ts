@@ -311,14 +311,26 @@ class DiscordAgent
         content: userMentions.join(' '),
       };
 
-      // Collect all webhook URLs
+      // Collect all webhook URLs and validate they are Discord webhooks
       const webhookUrls = [
         settings.options.webhookUrl,
         settings.options.webhookUrl2,
         settings.options.webhookUrl3,
         settings.options.webhookUrl4,
         settings.options.webhookUrl5,
-      ].filter((url) => url && url.trim() !== '');
+      ].filter((url) => {
+        if (!url || url.trim() === '') return false;
+        // Validate it's a Discord webhook URL to prevent SSRF
+        try {
+          const urlObj = new URL(url);
+          return (
+            urlObj.hostname === 'discord.com' ||
+            urlObj.hostname.endsWith('.discord.com')
+          );
+        } catch {
+          return false;
+        }
+      });
 
       // Send to all configured webhooks
       const results = await Promise.allSettled(
