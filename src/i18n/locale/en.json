@@ -284,6 +284,8 @@
   "components.Login.validationservertyperequired": "Please select a server type",
   "components.Login.validationusernamerequired": "Username required",
   "components.ManageSlideOver.alltime": "All Time",
+  "components.ManageSlideOver.deleteFromServer": "Delete from Server",
+  "components.ManageSlideOver.deleteFromServer4k": "Delete from Server (4K)",
   "components.ManageSlideOver.downloadstatus": "Downloads",
   "components.ManageSlideOver.manageModalAdvanced": "Advanced",
   "components.ManageSlideOver.manageModalClearMedia": "Clear Data",
