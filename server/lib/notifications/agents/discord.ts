@@ -302,16 +302,47 @@ class DiscordAgent
         userMentions.push(`<@&${settings.options.webhookRoleId}>`);
       }
 
-      await axios.post(settings.options.webhookUrl, {
+      const webhookPayload: DiscordWebhookPayload = {
         username: settings.options.botUsername
           ? settings.options.botUsername
           : getSettings().main.applicationTitle,
         avatar_url: settings.options.botAvatarUrl,
         embeds: [this.buildEmbed(type, payload)],
         content: userMentions.join(' '),
-      } as DiscordWebhookPayload);
+      };
 
-      return true;
+      // Collect all webhook URLs
+      const webhookUrls = [
+        settings.options.webhookUrl,
+        settings.options.webhookUrl2,
+        settings.options.webhookUrl3,
+        settings.options.webhookUrl4,
+        settings.options.webhookUrl5,
+      ].filter((url) => url && url.trim() !== '');
+
+      // Send to all configured webhooks
+      const results = await Promise.allSettled(
+        webhookUrls.map((url) => axios.post(url, webhookPayload))
+      );
+
+      // Log any failures
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          logger.error(
+            `Error sending Discord notification to webhook ${index + 1}`,
+            {
+              label: 'Notifications',
+              type: Notification[type],
+              subject: payload.subject,
+              errorMessage: result.reason?.message,
+              response: result.reason?.response?.data,
+            }
+          );
+        }
+      });
+
+      // Return true if at least one webhook succeeded
+      return results.some((result) => result.status === 'fulfilled');
     } catch (e) {
       logger.error('Error sending Discord notification', {
         label: 'Notifications',

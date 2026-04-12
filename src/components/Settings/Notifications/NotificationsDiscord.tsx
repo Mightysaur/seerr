@@ -19,8 +19,13 @@ const messages = defineMessages('components.Settings.Notifications', {
   botUsername: 'Bot Username',
   botAvatarUrl: 'Bot Avatar URL',
   webhookUrl: 'Webhook URL',
+  webhookUrl2: 'Webhook URL 2',
+  webhookUrl3: 'Webhook URL 3',
+  webhookUrl4: 'Webhook URL 4',
+  webhookUrl5: 'Webhook URL 5',
   webhookUrlTip:
     'Create a <DiscordWebhookLink>webhook integration</DiscordWebhookLink> in your server',
+  additionalWebhookTip: 'Optional: Send notifications to multiple Discord servers',
   webhookRoleId: 'Notification Role ID',
   webhookRoleIdTip:
     'The role ID to mention in the webhook message. Leave empty to disable mentions',
@@ -59,6 +64,18 @@ const NotificationsDiscord = () => {
         otherwise: Yup.string().nullable(),
       })
       .url(intl.formatMessage(messages.validationUrl)),
+    webhookUrl2: Yup.string()
+      .nullable()
+      .url(intl.formatMessage(messages.validationUrl)),
+    webhookUrl3: Yup.string()
+      .nullable()
+      .url(intl.formatMessage(messages.validationUrl)),
+    webhookUrl4: Yup.string()
+      .nullable()
+      .url(intl.formatMessage(messages.validationUrl)),
+    webhookUrl5: Yup.string()
+      .nullable()
+      .url(intl.formatMessage(messages.validationUrl)),
     webhookRoleId: Yup.string()
       .nullable()
       .matches(
@@ -80,6 +97,10 @@ const NotificationsDiscord = () => {
         botUsername: data?.options.botUsername,
         botAvatarUrl: data?.options.botAvatarUrl,
         webhookUrl: data.options.webhookUrl,
+        webhookUrl2: data?.options.webhookUrl2 || '',
+        webhookUrl3: data?.options.webhookUrl3 || '',
+        webhookUrl4: data?.options.webhookUrl4 || '',
+        webhookUrl5: data?.options.webhookUrl5 || '',
         webhookRoleId: data?.options.webhookRoleId,
         enableMentions: data?.options.enableMentions,
       }}
@@ -94,6 +115,10 @@ const NotificationsDiscord = () => {
               botUsername: values.botUsername,
               botAvatarUrl: values.botAvatarUrl,
               webhookUrl: values.webhookUrl,
+              webhookUrl2: values.webhookUrl2,
+              webhookUrl3: values.webhookUrl3,
+              webhookUrl4: values.webhookUrl4,
+              webhookUrl5: values.webhookUrl5,
               webhookRoleId: values.webhookRoleId,
               enableMentions: values.enableMentions,
             },
@@ -144,6 +169,10 @@ const NotificationsDiscord = () => {
                 botUsername: values.botUsername,
                 botAvatarUrl: values.botAvatarUrl,
                 webhookUrl: values.webhookUrl,
+                webhookUrl2: values.webhookUrl2,
+                webhookUrl3: values.webhookUrl3,
+                webhookUrl4: values.webhookUrl4,
+                webhookUrl5: values.webhookUrl5,
                 webhookRoleId: values.webhookRoleId,
                 enableMentions: values.enableMentions,
               },
@@ -220,6 +249,89 @@ const NotificationsDiscord = () => {
                   touched.webhookUrl &&
                   typeof errors.webhookUrl === 'string' && (
                     <div className="error">{errors.webhookUrl}</div>
+                  )}
+              </div>
+            </div>
+            <div className="form-row">
+              <label htmlFor="webhookUrl2" className="text-label">
+                {intl.formatMessage(messages.webhookUrl2)}
+                <span className="label-tip">
+                  {intl.formatMessage(messages.additionalWebhookTip)}
+                </span>
+              </label>
+              <div className="form-input-area">
+                <div className="form-input-field">
+                  <Field
+                    id="webhookUrl2"
+                    name="webhookUrl2"
+                    type="text"
+                    inputMode="url"
+                  />
+                </div>
+                {errors.webhookUrl2 &&
+                  touched.webhookUrl2 &&
+                  typeof errors.webhookUrl2 === 'string' && (
+                    <div className="error">{errors.webhookUrl2}</div>
+                  )}
+              </div>
+            </div>
+            <div className="form-row">
+              <label htmlFor="webhookUrl3" className="text-label">
+                {intl.formatMessage(messages.webhookUrl3)}
+              </label>
+              <div className="form-input-area">
+                <div className="form-input-field">
+                  <Field
+                    id="webhookUrl3"
+                    name="webhookUrl3"
+                    type="text"
+                    inputMode="url"
+                  />
+                </div>
+                {errors.webhookUrl3 &&
+                  touched.webhookUrl3 &&
+                  typeof errors.webhookUrl3 === 'string' && (
+                    <div className="error">{errors.webhookUrl3}</div>
+                  )}
+              </div>
+            </div>
+            <div className="form-row">
+              <label htmlFor="webhookUrl4" className="text-label">
+                {intl.formatMessage(messages.webhookUrl4)}
+              </label>
+              <div className="form-input-area">
+                <div className="form-input-field">
+                  <Field
+                    id="webhookUrl4"
+                    name="webhookUrl4"
+                    type="text"
+                    inputMode="url"
+                  />
+                </div>
+                {errors.webhookUrl4 &&
+                  touched.webhookUrl4 &&
+                  typeof errors.webhookUrl4 === 'string' && (
+                    <div className="error">{errors.webhookUrl4}</div>
+                  )}
+              </div>
+            </div>
+            <div className="form-row">
+              <label htmlFor="webhookUrl5" className="text-label">
+                {intl.formatMessage(messages.webhookUrl5)}
+              </label>
+              <div className="form-input-area">
+                <div className="form-input-field">
+                  <Field
+                    id="webhookUrl5"
+                    name="webhookUrl5"
+                    type="text"
+                    inputMode="url"
+                  />
+                </div>
+                {errors.webhookUrl5 &&
+                  touched.webhookUrl5 &&
+                  typeof errors.webhookUrl5 === 'string' && (
+                    <div className="error">{errors.webhookUrl5}</div>
                   )}
               </div>
             </div>
