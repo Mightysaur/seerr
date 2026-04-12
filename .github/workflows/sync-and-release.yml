@@ -24,7 +24,7 @@ jobs:
 
       - name: Add upstream remote
         run: |
-          git remote add upstream https://github.com/seerr-developers/seerr.git || true
+          git remote add upstream https://github.com/seerr-team/seerr.git || true
           git fetch upstream --tags
 
       - name: Get latest upstream release
@@ -121,10 +121,11 @@ jobs:
           body: |
             ## Custom Seerr Release
 
-            Based on upstream [seerr-developers/seerr@${{ steps.upstream_release.outputs.latest_tag }}](https://github.com/seerr-developers/seerr/releases/tag/${{ steps.upstream_release.outputs.latest_tag }})
+            Based on upstream [seerr-team/seerr@${{ steps.upstream_release.outputs.latest_tag }}](https://github.com/seerr-team/seerr/releases/tag/${{ steps.upstream_release.outputs.latest_tag }})
 
             ### Custom Features:
             - ✨ **MANAGE_MEDIA Permission**: Allows non-admin users to delete media from Radarr/Sonarr
+            - ✨ **Multiple Discord Webhooks**: Support for up to 5 Discord webhook URLs for notifications
 
             ### Docker Image:
             ```bash
