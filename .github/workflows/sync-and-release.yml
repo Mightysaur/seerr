@@ -57,6 +57,16 @@ jobs:
             echo "Need to sync to $LATEST_TAG"
           fi
 
+      - name: Setup Node.js
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: pnpm/action-setup@v4
+
       - name: Merge upstream release with custom changes
         if: steps.check_sync.outputs.already_synced == 'false'
         run: |
