@@ -62,52 +62,29 @@ jobs:
         run: |
           LATEST_TAG=${{ steps.upstream_release.outputs.latest_tag }}
 
-          # Create a new branch from the upstream tag
-          git checkout -b sync-$LATEST_TAG $LATEST_TAG
-
-          # Find all custom commits on develop that aren't in upstream
-          # Excludes: merge commits and commits that only touch .github/workflows/
-          CUSTOM_COMMITS=$(git log upstream/develop..origin/develop --no-merges --format="%H" --reverse)
-
-          echo "Found commits to check:"
-          echo "$CUSTOM_COMMITS"
-
-          # Cherry-pick each custom commit (skip workflow-only commits)
-          for COMMIT in $CUSTOM_COMMITS; do
-            COMMIT_MSG=$(git log -1 --format="%s" $COMMIT)
-
-            # Check if commit only modifies workflow files
-            FILES_CHANGED=$(git diff-tree --no-commit-id --name-only -r $COMMIT)
-            if echo "$FILES_CHANGED" | grep -qvE '^\.github/workflows/'; then
-              echo "Cherry-picking: $COMMIT_MSG"
-            else
-              echo "Skipping workflow-only commit: $COMMIT_MSG"
-              continue
+          # Merge upstream tag into develop (keeps our custom commits)
+          git checkout develop
+          git merge $LATEST_TAG -m "Merge upstream $LATEST_TAG with custom changes" --no-edit || {
+            echo "Merge conflict detected, auto-resolving..."
+            # For conflicts in lock files, regenerate them
+            if git diff --name-only --diff-filter=U | grep -q "pnpm-lock.yaml"; then
+              git checkout --theirs pnpm-lock.yaml
+              git add pnpm-lock.yaml
             fi
+            # For other conflicts, prefer our changes
+            git checkout --ours . 2>/dev/null || true
+            git add -A
+            git commit -m "Merge upstream $LATEST_TAG with custom changes (resolved conflicts)"
+          }
 
-            git cherry-pick $COMMIT || {
-              echo "Cherry-pick conflict for $COMMIT_MSG, auto-resolving..."
-              # For conflicts, prefer our custom changes
-              git checkout --theirs . 2>/dev/null || true
-              git add -A
-              GIT_EDITOR=true git cherry-pick --continue || {
-                # If still failing, skip this commit
-                echo "Warning: Could not apply $COMMIT_MSG, skipping..."
-                git cherry-pick --skip || true
-              }
-            }
-          done
-
-          # Tag this new version (delete old tag if exists)
+          # Tag this merged state
           git tag -d "$LATEST_TAG-custom" 2>/dev/null || true
           git push origin ":refs/tags/$LATEST_TAG-custom" 2>/dev/null || true
           git tag "$LATEST_TAG-custom"
-          git push origin "$LATEST_TAG-custom"
 
-          # Update develop branch - reset to match the synced branch
-          git checkout develop
-          git reset --hard sync-$LATEST_TAG
-          git push origin develop --force
+          # Push both the tag and develop
+          git push origin "$LATEST_TAG-custom"
+          git push origin develop
 
       - name: Set up Docker Buildx
         if: steps.check_sync.outputs.already_synced == 'false'

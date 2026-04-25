@@ -315,16 +315,61 @@ class DiscordAgent
         ? (payload.notifyUser?.settings?.locale as AvailableLocale)
         : (settings.options.locale as AvailableLocale);
 
-      await axios.post(settings.options.webhookUrl, {
+      const webhookPayload: DiscordWebhookPayload = {
         username: settings.options.botUsername
           ? settings.options.botUsername
           : getSettings().main.applicationTitle,
         avatar_url: settings.options.botAvatarUrl,
         embeds: [this.buildEmbed(type, payload, locale)],
         content: userMentions.join(' '),
-      } as DiscordWebhookPayload);
+        tts: false,
+      };
 
-      return true;
+      // Collect all webhook URLs and validate they are Discord webhooks
+      const webhookUrls = [
+        settings.options.webhookUrl,
+        settings.options.webhookUrl2,
+        settings.options.webhookUrl3,
+        settings.options.webhookUrl4,
+        settings.options.webhookUrl5,
+      ]
+        .filter((url): url is string => {
+          if (!url || url.trim() === '') return false;
+          // Validate it's a Discord webhook URL to prevent SSRF
+          try {
+            const urlObj = new URL(url);
+            return (
+              urlObj.hostname === 'discord.com' ||
+              urlObj.hostname.endsWith('.discord.com')
+            );
+          } catch {
+            return false;
+          }
+        });
+
+      // Send to all configured webhooks
+      const results = await Promise.allSettled(
+        webhookUrls.map((url) => axios.post(url, webhookPayload))
+      );
+
+      // Log any failures
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          logger.error(
+            `Error sending Discord notification to webhook ${index + 1}`,
+            {
+              label: 'Notifications',
+              type: Notification[type],
+              subject: payload.subject,
+              errorMessage: result.reason?.message,
+              response: result.reason?.response?.data,
+            }
+          );
+        }
+      });
+
+      // Return true if at least one webhook succeeded
+      return results.some((result) => result.status === 'fulfilled');
     } catch (e) {
       logger.error('Error sending Discord notification', {
         label: 'Notifications',
