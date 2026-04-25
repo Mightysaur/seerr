@@ -60,8 +60,10 @@ const messages = defineMessages('components.ManageSlideOver', {
     '* This will irreversibly remove this {mediaType} from {arr}, including all files.',
   openarr: 'Open in {arr}',
   removearr: 'Remove from {arr}',
+  deleteFromServer: 'Delete from Server',
   openarr4k: 'Open in 4K {arr}',
   removearr4k: 'Remove from 4K {arr}',
+  deleteFromServer4k: 'Delete from Server (4K)',
   downloadstatus: 'Downloads',
   markavailable: 'Mark as Available',
   mark4kavailable: 'Mark as Available in 4K',
@@ -116,10 +118,14 @@ const ManageSlideOver = ({
       : null
   );
   const { data: radarrData } = useSWR<RadarrSettings[]>(
-    hasPermission(Permission.ADMIN) ? '/api/v1/settings/radarr' : null
+    hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], { type: 'or' })
+      ? '/api/v1/settings/radarr'
+      : null
   );
   const { data: sonarrData } = useSWR<SonarrSettings[]>(
-    hasPermission(Permission.ADMIN) ? '/api/v1/settings/sonarr' : null
+    hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], { type: 'or' })
+      ? '/api/v1/settings/sonarr'
+      : null
   );
 
   const deleteMedia = async () => {
@@ -329,7 +335,9 @@ const ManageSlideOver = ({
             </div>
           </div>
         )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           (data.mediaInfo?.serviceUrl ||
             data.mediaInfo?.tautulliUrl ||
             watchData?.data) && (
@@ -453,7 +461,9 @@ const ManageSlideOver = ({
                   </a>
                 )}
 
-                {hasPermission(Permission.ADMIN) &&
+                {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+                  type: 'or',
+                }) &&
                   data?.mediaInfo?.serviceUrl &&
                   isDefaultService() && (
                     <div>
@@ -466,9 +476,11 @@ const ManageSlideOver = ({
                       >
                         <TrashIcon />
                         <span>
-                          {intl.formatMessage(messages.removearr, {
-                            arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
-                          })}
+                          {hasPermission(Permission.ADMIN)
+                            ? intl.formatMessage(messages.removearr, {
+                                arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                              })
+                            : intl.formatMessage(messages.deleteFromServer)}
                         </span>
                       </ConfirmButton>
                       <div className="mt-1 text-xs text-gray-400">
@@ -489,7 +501,9 @@ const ManageSlideOver = ({
               </div>
             </div>
           )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           (data.mediaInfo?.serviceUrl4k ||
             data.mediaInfo?.tautulliUrl4k ||
             watchData?.data4k) && (
@@ -625,9 +639,11 @@ const ManageSlideOver = ({
                         >
                           <TrashIcon />
                           <span>
-                            {intl.formatMessage(messages.removearr4k, {
-                              arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
-                            })}
+                            {hasPermission(Permission.ADMIN)
+                              ? intl.formatMessage(messages.removearr4k, {
+                                  arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                                })
+                              : intl.formatMessage(messages.deleteFromServer4k)}
                           </span>
                         </ConfirmButton>
                         <div className="mt-1 text-xs text-gray-400">
@@ -650,7 +666,9 @@ const ManageSlideOver = ({
               </div>
             </div>
           )}
-        {hasPermission(Permission.ADMIN) &&
+        {hasPermission([Permission.ADMIN, Permission.MANAGE_MEDIA], {
+          type: 'or',
+        }) &&
           data?.mediaInfo &&
           data.mediaInfo.status !== MediaStatus.BLOCKLISTED && (
             <div>
@@ -691,33 +709,35 @@ const ManageSlideOver = ({
                       </span>
                     </Button>
                   )}
-                <div>
-                  <ConfirmButton
-                    onClick={() => deleteMedia()}
-                    confirmText={intl.formatMessage(globalMessages.areyousure)}
-                    className="w-full"
-                  >
-                    <DocumentMinusIcon />
-                    <span>
-                      {intl.formatMessage(messages.manageModalClearMedia)}
-                    </span>
-                  </ConfirmButton>
-                  <div className="mt-2 text-xs text-gray-400">
-                    {intl.formatMessage(messages.manageModalClearMediaWarning, {
-                      mediaType: intl.formatMessage(
-                        mediaType === 'movie' ? messages.movie : messages.tvshow
-                      ),
-                      mediaServerName:
-                        settings.currentSettings.mediaServerType ===
-                        MediaServerType.EMBY
-                          ? 'Emby'
-                          : settings.currentSettings.mediaServerType ===
-                              MediaServerType.PLEX
-                            ? 'Plex'
-                            : 'Jellyfin',
-                    })}
+                {hasPermission(Permission.ADMIN) && (
+                  <div>
+                    <ConfirmButton
+                      onClick={() => deleteMedia()}
+                      confirmText={intl.formatMessage(globalMessages.areyousure)}
+                      className="w-full"
+                    >
+                      <DocumentMinusIcon />
+                      <span>
+                        {intl.formatMessage(messages.manageModalClearMedia)}
+                      </span>
+                    </ConfirmButton>
+                    <div className="mt-2 text-xs text-gray-400">
+                      {intl.formatMessage(messages.manageModalClearMediaWarning, {
+                        mediaType: intl.formatMessage(
+                          mediaType === 'movie' ? messages.movie : messages.tvshow
+                        ),
+                        mediaServerName:
+                          settings.currentSettings.mediaServerType ===
+                          MediaServerType.EMBY
+                            ? 'Emby'
+                            : settings.currentSettings.mediaServerType ===
+                                MediaServerType.PLEX
+                              ? 'Plex'
+                              : 'Jellyfin',
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
