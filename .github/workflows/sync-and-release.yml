@@ -57,6 +57,18 @@ jobs:
             echo "Need to sync to $LATEST_TAG"
           fi
 
+      - name: Setup Node.js
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Merge upstream release with custom changes
         if: steps.check_sync.outputs.already_synced == 'false'
         run: |
@@ -66,7 +78,7 @@ jobs:
           git checkout develop
           git merge $LATEST_TAG -m "Merge upstream $LATEST_TAG with custom changes" --no-edit || {
             echo "Merge conflict detected, auto-resolving..."
-            # For conflicts in lock files, regenerate them
+            # For lock file conflicts, accept upstream and regenerate
             if git diff --name-only --diff-filter=U | grep -q "pnpm-lock.yaml"; then
               git checkout --theirs pnpm-lock.yaml
               git add pnpm-lock.yaml
@@ -74,8 +86,14 @@ jobs:
             # For other conflicts, prefer our changes
             git checkout --ours . 2>/dev/null || true
             git add -A
-            git commit -m "Merge upstream $LATEST_TAG with custom changes (resolved conflicts)"
+            git commit -m "Merge upstream $LATEST_TAG with custom changes (resolved conflicts)" || true
           }
+
+          # Regenerate lockfile to ensure it matches package.json
+          echo "Regenerating pnpm-lock.yaml..."
+          pnpm install --lockfile-only
+          git add pnpm-lock.yaml
+          git commit -m "chore: regenerate pnpm-lock.yaml after merge" || echo "No lockfile changes needed"
 
           # Tag this merged state
           git tag -d "$LATEST_TAG-custom" 2>/dev/null || true
