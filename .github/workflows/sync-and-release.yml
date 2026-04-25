@@ -1,0 +1,171 @@
+name: Sync with Upstream and Release
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force rebuild even if already synced'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/seerr-team/seerr.git || true
+          git fetch upstream --tags
+
+      - name: Get latest upstream release
+        id: upstream_release
+        run: |
+          LATEST_TAG=$(git tag --list --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest upstream tag: $LATEST_TAG"
+
+      - name: Check if already synced
+        id: check_sync
+        run: |
+          LATEST_TAG=${{ steps.upstream_release.outputs.latest_tag }}
+          FORCE=${{ github.event.inputs.force || 'false' }}
+
+          if [ "$FORCE" = "true" ]; then
+            echo "already_synced=false" >> $GITHUB_OUTPUT
+            echo "Force rebuild requested"
+          elif git rev-parse "refs/tags/$LATEST_TAG-custom" >/dev/null 2>&1; then
+            echo "already_synced=true" >> $GITHUB_OUTPUT
+            echo "Already synced to $LATEST_TAG"
+          else
+            echo "already_synced=false" >> $GITHUB_OUTPUT
+            echo "Need to sync to $LATEST_TAG"
+          fi
+
+      - name: Merge upstream release with custom changes
+        if: steps.check_sync.outputs.already_synced == 'false'
+        run: |
+          LATEST_TAG=${{ steps.upstream_release.outputs.latest_tag }}
+
+          # Create a new branch from the upstream tag
+          git checkout -b sync-$LATEST_TAG $LATEST_TAG
+
+          # Find all custom commits on develop that aren't in upstream
+          # Excludes: merge commits and commits that only touch .github/workflows/
+          CUSTOM_COMMITS=$(git log upstream/develop..origin/develop --no-merges --format="%H" --reverse)
+
+          echo "Found commits to check:"
+          echo "$CUSTOM_COMMITS"
+
+          # Cherry-pick each custom commit (skip workflow-only commits)
+          for COMMIT in $CUSTOM_COMMITS; do
+            COMMIT_MSG=$(git log -1 --format="%s" $COMMIT)
+
+            # Check if commit only modifies workflow files
+            FILES_CHANGED=$(git diff-tree --no-commit-id --name-only -r $COMMIT)
+            if echo "$FILES_CHANGED" | grep -qvE '^\.github/workflows/'; then
+              echo "Cherry-picking: $COMMIT_MSG"
+            else
+              echo "Skipping workflow-only commit: $COMMIT_MSG"
+              continue
+            fi
+
+            git cherry-pick $COMMIT || {
+              echo "Cherry-pick conflict for $COMMIT_MSG, auto-resolving..."
+              # For conflicts, prefer our custom changes
+              git checkout --theirs . 2>/dev/null || true
+              git add -A
+              GIT_EDITOR=true git cherry-pick --continue || {
+                # If still failing, skip this commit
+                echo "Warning: Could not apply $COMMIT_MSG, skipping..."
+                git cherry-pick --skip || true
+              }
+            }
+          done
+
+          # Tag this new version (delete old tag if exists)
+          git tag -d "$LATEST_TAG-custom" 2>/dev/null || true
+          git push origin ":refs/tags/$LATEST_TAG-custom" 2>/dev/null || true
+          git tag "$LATEST_TAG-custom"
+          git push origin "$LATEST_TAG-custom"
+
+          # Update develop branch - reset to match the synced branch
+          git checkout develop
+          git reset --hard sync-$LATEST_TAG
+          git push origin develop --force
+
+      - name: Set up Docker Buildx
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        if: steps.check_sync.outputs.already_synced == 'false'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/seerr
+          tags: |
+            type=raw,value=${{ steps.upstream_release.outputs.latest_tag }}-custom
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            COMMIT_TAG=${{ steps.upstream_release.outputs.latest_tag }}-custom
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        if: steps.check_sync.outputs.already_synced == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.upstream_release.outputs.latest_tag }}-custom
+          name: Seerr ${{ steps.upstream_release.outputs.latest_tag }} (Custom)
+          body: |
+            ## Custom Seerr Release
+
+            Based on upstream [seerr-team/seerr@${{ steps.upstream_release.outputs.latest_tag }}](https://github.com/seerr-team/seerr/releases/tag/${{ steps.upstream_release.outputs.latest_tag }})
+
+            ### Custom Features:
+            - ✨ **MANAGE_MEDIA Permission**: Allows non-admin users to delete media from Radarr/Sonarr
+            - ✨ **Multiple Discord Webhooks**: Support for up to 5 Discord webhook URLs for notifications
+
+            ### Docker Image:
+            ```bash
+            docker pull ${{ secrets.DOCKER_USERNAME }}/seerr:${{ steps.upstream_release.outputs.latest_tag }}-custom
+            # or
+            docker pull ${{ secrets.DOCKER_USERNAME }}/seerr:latest
+            ```
+
+            🤖 This release was automatically generated and built
+          draft: false
+          prerelease: false
