@@ -156,6 +156,7 @@ export interface MainSettings {
   enableSpecialEpisodes: boolean;
   locale: string;
   youtubeUrl: string;
+  versionCheck: boolean;
 }
 
 export interface ProxySettings {
@@ -214,6 +215,7 @@ interface FullPublicSettings extends PublicSettings {
   userEmailRequired: boolean;
   newPlexLogin: boolean;
   youtubeUrl: string;
+  versionCheck: boolean;
   plexClientIdentifier: string;
 }
 
@@ -233,6 +235,7 @@ export interface NotificationAgentDiscord extends NotificationAgentConfig {
     webhookUrl4?: string;
     webhookUrl5?: string;
     webhookRoleId?: string;
+    webhookThreadId?: string;
     enableMentions: boolean;
     locale: AvailableLocale;
     useUserLocale: boolean;
@@ -432,6 +435,7 @@ class Settings {
         enableSpecialEpisodes: false,
         locale: 'en',
         youtubeUrl: '',
+        versionCheck: true,
       },
       plex: {
         name: '',
@@ -737,6 +741,7 @@ class Settings {
         this.data.notifications.agents.email.options.userEmailRequired,
       newPlexLogin: this.data.main.newPlexLogin,
       youtubeUrl: this.data.main.youtubeUrl,
+      versionCheck: this.data.main.versionCheck,
       plexClientIdentifier: this.data.clientId,
     };
   }
