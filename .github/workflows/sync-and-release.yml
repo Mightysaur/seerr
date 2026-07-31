@@ -72,23 +72,36 @@ jobs:
 
       - name: Merge upstream release with custom changes
         if: steps.check_sync.outputs.already_synced == 'false'
+        id: merge
         run: |
-          LATEST_TAG=${{ steps.upstream_release.outputs.latest_tag }}
+          set -uo pipefail
+          LATEST_TAG='${{ steps.upstream_release.outputs.latest_tag }}'
 
-          # Merge upstream tag into develop (keeps our custom commits)
           git checkout develop
-          git merge $LATEST_TAG -m "Merge upstream $LATEST_TAG with custom changes" --no-edit || {
-            echo "Merge conflict detected, auto-resolving..."
-            # For conflicts in lock files, regenerate them
-            if git diff --name-only --diff-filter=U | grep -q "pnpm-lock.yaml"; then
+
+          if ! git merge "$LATEST_TAG" -m "Merge upstream $LATEST_TAG with custom changes" --no-edit; then
+            CONFLICTS="$(git diff --name-only --diff-filter=U)"
+
+            # pnpm-lock.yaml is generated, not authored: take upstream's and
+            # regenerate against the merged package.json. Any other conflict
+            # needs a human, because auto-picking a side silently drops one.
+            if [ "$CONFLICTS" = "pnpm-lock.yaml" ]; then
               git checkout --theirs pnpm-lock.yaml
+              pnpm install --lockfile-only --no-frozen-lockfile
               git add pnpm-lock.yaml
+              git commit --no-edit
+            else
+              git merge --abort
+              {
+                echo "conflicts<<CONFLICT_EOF"
+                echo "$CONFLICTS"
+                echo "CONFLICT_EOF"
+              } >> "$GITHUB_OUTPUT"
+              echo "::error::Cannot merge $LATEST_TAG automatically - $(echo "$CONFLICTS" | wc -l | tr -d ' ') file(s) conflict and need manual resolution"
+              echo "$CONFLICTS" | sed 's/^/  - /'
+              exit 1
             fi
-            # For other conflicts, prefer our changes
-            git checkout --ours . 2>/dev/null || true
-            git add -A
-            git commit -m "Merge upstream $LATEST_TAG with custom changes (resolved conflicts)"
-          }
+          fi
 
           # Tag this merged state
           git tag -d "$LATEST_TAG-custom" 2>/dev/null || true
@@ -159,3 +172,31 @@ jobs:
             🤖 This release was automatically generated and built
           draft: false
           prerelease: false
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+          LATEST_TAG: ${{ steps.upstream_release.outputs.latest_tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+
+          if [ -n "$CONFLICTS" ]; then
+            TITLE="Sync blocked: $LATEST_TAG needs a manual merge"
+            BODY="Upstream \`$LATEST_TAG\` conflicts with your custom changes, so nothing was tagged, built, or released."
+            BODY="$BODY"$'\n\n'"Conflicting files:"$'\n'"$(echo "$CONFLICTS" | sed 's/^/- /')"
+            BODY="$BODY"$'\n\n'"Resolve locally, push develop, then re-run this workflow with \`force\` enabled."
+          else
+            TITLE="Sync failed: $LATEST_TAG"
+            BODY="The sync-and-release run failed before publishing. Nothing was released."
+          fi
+
+          echo "$BODY"
+
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            jq -n --arg t "$TITLE" --arg b "$BODY" --arg u "$RUN_URL" \
+              '{embeds:[{title:$t,description:($b+"\n\n[View run]("+$u+")"),color:15158332}]}' \
+            | curl -sS -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" || true
+          fi
