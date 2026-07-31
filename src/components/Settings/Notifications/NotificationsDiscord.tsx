@@ -26,7 +26,8 @@ const messages = defineMessages('components.Settings.Notifications', {
   webhookUrl5: 'Webhook URL 5',
   webhookUrlTip:
     'Create a <DiscordWebhookLink>webhook integration</DiscordWebhookLink> in your server',
-  additionalWebhookTip: 'Optional: Send notifications to multiple Discord servers',
+  additionalWebhookTip:
+    'Optional: Send notifications to multiple Discord servers',
   webhookRoleId: 'Notification Role ID',
   webhookRoleIdTip:
     'The role ID to mention in the webhook message. Leave empty to disable mentions',
