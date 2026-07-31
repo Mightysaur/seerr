@@ -334,24 +334,36 @@ class DiscordAgent
         settings.options.webhookUrl3,
         settings.options.webhookUrl4,
         settings.options.webhookUrl5,
-      ]
-        .filter((url): url is string => {
-          if (!url || url.trim() === '') return false;
-          // Validate it's a Discord webhook URL to prevent SSRF
-          try {
-            const urlObj = new URL(url);
-            return (
-              urlObj.hostname === 'discord.com' ||
-              urlObj.hostname.endsWith('.discord.com')
-            );
-          } catch {
-            return false;
-          }
-        });
+      ].filter((url): url is string => {
+        if (!url || url.trim() === '') return false;
+        // Validate it's a Discord webhook URL to prevent SSRF
+        try {
+          const urlObj = new URL(url);
+          return (
+            urlObj.hostname === 'discord.com' ||
+            urlObj.hostname.endsWith('.discord.com')
+          );
+        } catch {
+          return false;
+        }
+      });
+
+      // thread_id is scoped to the channel behind the primary webhook, so it is
+      // only applied there; the other webhooks post to channels where that
+      // thread does not exist and would be rejected.
+      const threadId = settings.options.webhookThreadId;
+      const targets = webhookUrls.map((url, index) => {
+        if (index !== 0 || !threadId) {
+          return url;
+        }
+        const urlWithThread = new URL(url);
+        urlWithThread.searchParams.set('thread_id', threadId);
+        return urlWithThread.toString();
+      });
 
       // Send to all configured webhooks
       const results = await Promise.allSettled(
-        webhookUrls.map((url) => axios.post(url, webhookPayload))
+        targets.map((url) => axios.post(url, webhookPayload))
       );
 
       // Log any failures

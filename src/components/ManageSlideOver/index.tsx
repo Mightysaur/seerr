@@ -8,6 +8,7 @@ import DownloadBlock from '@app/components/DownloadBlock';
 import IssueBlock from '@app/components/IssueBlock';
 import RequestBlock from '@app/components/RequestBlock';
 import useSettings from '@app/hooks/useSettings';
+import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
@@ -66,6 +67,8 @@ const messages = defineMessages('components.ManageSlideOver', {
   openarr4k: 'Open in 4K {arr}',
   removearr4k: 'Remove from 4K {arr}',
   deleteFromServer4k: 'Delete from Server (4K)',
+  clearmediadataerror: 'Something went wrong while clearing the media data.',
+  removemediaerror: 'Something went wrong while removing the media.',
   downloadstatus: 'Downloads',
   markavailable: 'Mark as Available',
   mark4kavailable: 'Mark as Available in 4K',
@@ -112,6 +115,7 @@ const ManageSlideOver = ({
   const { user: currentUser, hasPermission } = useUser();
   const intl = useIntl();
   const settings = useSettings();
+  const { addToast } = useToasts();
   const { data: watchData } = useSWR<MediaWatchDataResponse>(
     settings.currentSettings.mediaServerType === MediaServerType.PLEX &&
       data.mediaInfo &&
@@ -132,18 +136,35 @@ const ManageSlideOver = ({
 
   const deleteMedia = async () => {
     if (data.mediaInfo) {
-      await axios.delete(`/api/v1/media/${data.mediaInfo.id}`);
-      revalidate();
-      onClose();
+      try {
+        await axios.delete(`/api/v1/media/${data.mediaInfo.id}`);
+        revalidate();
+        onClose();
+      } catch {
+        addToast(intl.formatMessage(messages.clearmediadataerror), {
+          appearance: 'error',
+          autoDismiss: true,
+        });
+      }
     }
   };
 
   const deleteMediaFile = async (is4k = false) => {
     if (data.mediaInfo) {
-      await axios.delete(
-        `/api/v1/media/${data.mediaInfo.id}/file?is4k=${is4k}`
-      );
-      await axios.delete(`/api/v1/media/${data.mediaInfo.id}`);
+      try {
+        await axios.delete(
+          `/api/v1/media/${data.mediaInfo.id}/file?is4k=${is4k}`
+        );
+      } catch (e) {
+        if (!axios.isAxiosError(e) || e.response?.status !== 404) {
+          addToast(intl.formatMessage(messages.removemediaerror), {
+            appearance: 'error',
+            autoDismiss: true,
+          });
+          revalidate();
+          return;
+        }
+      }
       revalidate();
       onClose();
     }
@@ -480,7 +501,8 @@ const ManageSlideOver = ({
                         <span>
                           {hasPermission(Permission.ADMIN)
                             ? intl.formatMessage(messages.removearr, {
-                                arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                                arr:
+                                  mediaType === 'movie' ? 'Radarr' : 'Sonarr',
                               })
                             : intl.formatMessage(messages.deleteFromServer)}
                         </span>
@@ -643,7 +665,8 @@ const ManageSlideOver = ({
                           <span>
                             {hasPermission(Permission.ADMIN)
                               ? intl.formatMessage(messages.removearr4k, {
-                                  arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                                  arr:
+                                    mediaType === 'movie' ? 'Radarr' : 'Sonarr',
                                 })
                               : intl.formatMessage(messages.deleteFromServer4k)}
                           </span>
@@ -715,7 +738,9 @@ const ManageSlideOver = ({
                   <div>
                     <ConfirmButton
                       onClick={() => deleteMedia()}
-                      confirmText={intl.formatMessage(globalMessages.areyousure)}
+                      confirmText={intl.formatMessage(
+                        globalMessages.areyousure
+                      )}
                       className="w-full"
                     >
                       <DocumentMinusIcon />
@@ -724,19 +749,24 @@ const ManageSlideOver = ({
                       </span>
                     </ConfirmButton>
                     <div className="mt-2 text-xs text-gray-400">
-                      {intl.formatMessage(messages.manageModalClearMediaWarning, {
-                        mediaType: intl.formatMessage(
-                          mediaType === 'movie' ? messages.movie : messages.tvshow
-                        ),
-                        mediaServerName:
-                          settings.currentSettings.mediaServerType ===
-                          MediaServerType.EMBY
-                            ? 'Emby'
-                            : settings.currentSettings.mediaServerType ===
-                                MediaServerType.PLEX
-                              ? 'Plex'
-                              : 'Jellyfin',
-                      })}
+                      {intl.formatMessage(
+                        messages.manageModalClearMediaWarning,
+                        {
+                          mediaType: intl.formatMessage(
+                            mediaType === 'movie'
+                              ? messages.movie
+                              : messages.tvshow
+                          ),
+                          mediaServerName:
+                            settings.currentSettings.mediaServerType ===
+                            MediaServerType.EMBY
+                              ? 'Emby'
+                              : settings.currentSettings.mediaServerType ===
+                                  MediaServerType.PLEX
+                                ? 'Plex'
+                                : 'Jellyfin',
+                        }
+                      )}
                     </div>
                   </div>
                 )}
